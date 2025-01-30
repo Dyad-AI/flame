@@ -33,6 +33,8 @@ defmodule FLAME.FlyBackend do
 
   * `:gpus` - The number of runner GPUs. Defaults to `1` if `:gpu_kind` is set.
 
+  * `:mounts` - The volumes to mount.
+
   * `:boot_timeout` - The boot timeout. Defaults to `30_000`.
 
   * `:app` – The name of the otp app. Defaults to `System.get_env("FLY_APP_NAME")`,
@@ -99,6 +101,7 @@ defmodule FLAME.FlyBackend do
              :memory_mb,
              :gpu_kind,
              :gpus,
+             :mounts,
              :image,
              :app,
              :runner_id,
@@ -120,6 +123,7 @@ defmodule FLAME.FlyBackend do
             memory_mb: nil,
             gpu_kind: nil,
             gpus: nil,
+            mounts: [],
             image: nil,
             services: [],
             metadata: %{},
@@ -149,6 +153,7 @@ defmodule FLAME.FlyBackend do
     :memory_mb,
     :gpu_kind,
     :gpus,
+    :mounts,
     :boot_timeout,
     :env,
     :terminator_sup,
@@ -170,6 +175,7 @@ defmodule FLAME.FlyBackend do
       host: "https://api.machines.dev",
       cpu_kind: "performance",
       cpus: System.schedulers_online(),
+      mounts: [],
       memory_mb: 4096,
       boot_timeout: 30_000,
       services: [],
@@ -253,6 +259,8 @@ defmodule FLAME.FlyBackend do
 
   @impl true
   def remote_boot(%FlyBackend{parent_ref: parent_ref} = state) do
+    {mounts, volume_validate_time} = get_volume_id(state)
+
     {resp, req_connect_time} =
       with_elapsed_ms(fn ->
         http_post!("#{state.host}/v1/apps/#{state.app}/machines", @retry,
@@ -269,6 +277,7 @@ defmodule FLAME.FlyBackend do
               config: %{
                 image: state.image,
                 init: state.init,
+                mounts: mounts,
                 guest: %{
                   cpu_kind: state.cpu_kind,
                   cpus: state.cpus,
@@ -293,7 +302,7 @@ defmodule FLAME.FlyBackend do
           "#{inspect(__MODULE__)} #{inspect(node())} machine create #{req_connect_time}ms"
         )
 
-    remaining_connect_window = state.boot_timeout - req_connect_time
+    remaining_connect_window = state.boot_timeout - req_connect_time - volume_validate_time
 
     case resp do
       %{"id" => id, "instance_id" => instance_id, "private_ip" => ip} ->
@@ -419,5 +428,76 @@ defmodule FLAME.FlyBackend do
     end
   else
     defp otp_cacerts, do: nil
+  end
+
+  # defp get_volume_id(%FlyBackend{mounts: []}), do: {nil, 0}
+
+  defp get_volume_id(%FlyBackend{mounts: []} = state) do
+    Logger.info("ROGER_FLAME: calling get_volumes()")
+    {volumes, time} = get_volumes(state)
+
+    case volumes do
+      [] ->
+        Logger.info("ROGER_FLAME: no volumes retrieved")
+
+      all_volumes ->
+        Logger.info("ROGER_FLAME: list of volumes is: #{inspect(all_volumes)}")
+    end
+
+    {nil, time}
+  end
+
+  defp get_volume_id(%FlyBackend{mounts: mounts} = state) when is_list(mounts) do
+    {volumes, time} = get_volumes(state)
+
+    case volumes do
+      [] ->
+        {:error, "no volumes to mount"}
+
+      all_volumes ->
+        volume_ids_by_name =
+          all_volumes
+          |> Enum.filter(fn vol ->
+            vol["attached_machine_id"] == nil and
+              vol["state"] == "created"
+          end)
+          |> Enum.group_by(& &1["name"], & &1["id"])
+
+        new_mounts =
+          Enum.map_reduce(
+            mounts,
+            volume_ids_by_name,
+            fn mount, leftover_vols ->
+              case List.wrap(leftover_vols[mount.name]) do
+                [] ->
+                  raise ArgumentError,
+                        "not enough fly volumes with the name \"#{mount.name}\" to a FLAME child"
+
+                [volume_id | rest] ->
+                  {%{mount | volume: volume_id}, %{leftover_vols | mount.name => rest}}
+              end
+            end
+          )
+
+        {new_mounts, time}
+    end
+  end
+
+  defp get_volume_id(_) do
+    raise ArgumentError, "expected a list of mounts"
+  end
+
+  # TODO ROGER - change this to not use Req - like the rest of the code (and remove Req dependency)
+  defp get_volumes(%FlyBackend{} = state) do
+    {vols, get_vols_time} =
+      with_elapsed_ms(fn ->
+        Req.get!("#{state.host}/v1/apps/#{state.app}/volumes",
+          connect_options: [timeout: state.boot_timeout],
+          retry: false,
+          auth: {:bearer, state.token}
+        )
+      end)
+
+    {vols.body, get_vols_time}
   end
 end
