@@ -437,15 +437,15 @@ defmodule FLAME.FlyBackend do
 
   defp get_volume_id(%FlyBackend{mounts: []} = state) do
     Logger.info("ROGER_FLAME: get_volume_id - EMPTY MOUNTS in pool")
-    # {volumes, time} = get_volumes(state)
+    {volumes, time} = get_volumes(state)
 
-    # case volumes do
-    #   [] ->
-    #     Logger.info("ROGER_FLAME: no volumes retrieved")
+    case volumes do
+      [] ->
+        Logger.info("ROGER_FLAME: no volumes retrieved")
 
-    #   all_volumes ->
-    #     Logger.info("ROGER_FLAME: list of volumes is: #{inspect(all_volumes)}")
-    # end
+      all_volumes ->
+        Logger.info("ROGER_FLAME: list of volumes is: #{inspect(all_volumes)}")
+    end
 
     {nil, 0}
   end
