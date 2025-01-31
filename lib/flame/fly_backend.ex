@@ -261,6 +261,9 @@ defmodule FLAME.FlyBackend do
   def remote_boot(%FlyBackend{parent_ref: parent_ref} = state) do
     {mounts, volume_validate_time} = get_volume_id(state)
 
+    # TODO ROGER - remove this when done testing
+    mounts = nil
+
     {resp, req_connect_time} =
       with_elapsed_ms(fn ->
         http_post!("#{state.host}/v1/apps/#{state.app}/machines", @retry,
@@ -433,28 +436,32 @@ defmodule FLAME.FlyBackend do
   # defp get_volume_id(%FlyBackend{mounts: []}), do: {nil, 0}
 
   defp get_volume_id(%FlyBackend{mounts: []} = state) do
-    Logger.info("ROGER_FLAME: calling get_volumes()")
+    Logger.info("ROGER_FLAME: get_volume_id - EMPTY MOUNTS in pool")
+    # {volumes, time} = get_volumes(state)
+
+    # case volumes do
+    #   [] ->
+    #     Logger.info("ROGER_FLAME: no volumes retrieved")
+
+    #   all_volumes ->
+    #     Logger.info("ROGER_FLAME: list of volumes is: #{inspect(all_volumes)}")
+    # end
+
+    {nil, 0}
+  end
+
+  defp get_volume_id(%FlyBackend{mounts: mounts} = state) when is_list(mounts) do
+    Logger.info("ROGER_FLAME: get_volume_id - calling get_volumes() - mounts: #{mounts}")
     {volumes, time} = get_volumes(state)
 
     case volumes do
       [] ->
         Logger.info("ROGER_FLAME: no volumes retrieved")
-
-      all_volumes ->
-        Logger.info("ROGER_FLAME: list of volumes is: #{inspect(all_volumes)}")
-    end
-
-    {nil, time}
-  end
-
-  defp get_volume_id(%FlyBackend{mounts: mounts} = state) when is_list(mounts) do
-    {volumes, time} = get_volumes(state)
-
-    case volumes do
-      [] ->
         {:error, "no volumes to mount"}
 
       all_volumes ->
+        Logger.info("ROGER_FLAME: list of volumes retrieved is: #{inspect(all_volumes)}")
+
         volume_ids_by_name =
           all_volumes
           |> Enum.filter(fn vol ->
@@ -462,6 +469,8 @@ defmodule FLAME.FlyBackend do
               vol["state"] == "created"
           end)
           |> Enum.group_by(& &1["name"], & &1["id"])
+
+        Logger.info("ROGER_FLAME: filtered and grouped list is: #{inspect(volume_ids_by_name)}")
 
         new_mounts =
           Enum.map_reduce(
@@ -479,11 +488,13 @@ defmodule FLAME.FlyBackend do
             end
           )
 
+        Logger.info("ROGER_FLAME: volumes to mount is: #{inspect(new_mounts)}")
         {new_mounts, time}
     end
   end
 
   defp get_volume_id(_) do
+    Logger.info("ROGER_FLAME: get_volume_id - argument error")
     raise ArgumentError, "expected a list of mounts"
   end
 
