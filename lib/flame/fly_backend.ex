@@ -462,34 +462,35 @@ defmodule FLAME.FlyBackend do
       all_volumes ->
         Logger.info("ROGER_FLAME: list of volumes retrieved is: #{inspect(all_volumes)}")
 
-        volume_ids_by_name =
-          all_volumes
-          |> Enum.filter(fn vol ->
-            vol["attached_machine_id"] == nil and
-              vol["state"] == "created"
-          end)
-          |> Enum.group_by(& &1["name"], & &1["id"])
+        # volume_ids_by_name =
+        #   all_volumes
+        #   |> Enum.filter(fn vol ->
+        #     vol["attached_machine_id"] == nil and
+        #       vol["state"] == "created"
+        #   end)
+        #   |> Enum.group_by(& &1["name"], & &1["id"])
 
-        Logger.info("ROGER_FLAME: filtered and grouped list is: #{inspect(volume_ids_by_name)}")
+        # Logger.info("ROGER_FLAME: filtered and grouped list is: #{inspect(volume_ids_by_name)}")
 
-        new_mounts =
-          Enum.map_reduce(
-            mounts,
-            volume_ids_by_name,
-            fn mount, leftover_vols ->
-              case List.wrap(leftover_vols[mount.name]) do
-                [] ->
-                  raise ArgumentError,
-                        "not enough fly volumes with the name \"#{mount.name}\" to a FLAME child"
+        # new_mounts =
+        #   Enum.map_reduce(
+        #     mounts,
+        #     volume_ids_by_name,
+        #     fn mount, leftover_vols ->
+        #       case List.wrap(leftover_vols[mount.name]) do
+        #         [] ->
+        #           raise ArgumentError,
+        #                 "not enough fly volumes with the name \"#{mount.name}\" to a FLAME child"
 
-                [volume_id | rest] ->
-                  {%{mount | volume: volume_id}, %{leftover_vols | mount.name => rest}}
-              end
-            end
-          )
+        #         [volume_id | rest] ->
+        #           {%{mount | volume: volume_id}, %{leftover_vols | mount.name => rest}}
+        #       end
+        #     end
+        #   )
 
-        Logger.info("ROGER_FLAME: volumes to mount is: #{inspect(new_mounts)}")
-        {new_mounts, time}
+        # Logger.info("ROGER_FLAME: volumes to mount is: #{inspect(new_mounts)}")
+        # {new_mounts, time}
+        {nil, time}
     end
   end
 
