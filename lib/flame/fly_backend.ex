@@ -263,6 +263,8 @@ defmodule FLAME.FlyBackend do
 
     # TODO ROGER - remove this when done testing
     mounts = nil
+    volume = "vol_v8811gylxm1dydkv"
+    path = "/.mailstack/dyad_ocr"
 
     {resp, req_connect_time} =
       with_elapsed_ms(fn ->
@@ -280,7 +282,7 @@ defmodule FLAME.FlyBackend do
               config: %{
                 image: state.image,
                 init: state.init,
-                mounts: mounts,
+                mounts: [%{volume: volume, path: path}],
                 guest: %{
                   cpu_kind: state.cpu_kind,
                   cpus: state.cpus,
@@ -451,7 +453,7 @@ defmodule FLAME.FlyBackend do
   end
 
   defp get_volume_id(%FlyBackend{mounts: mounts} = state) when is_list(mounts) do
-    Logger.info("ROGER_FLAME: get_volume_id - calling get_volumes() - mounts: #{mounts}")
+    Logger.info("ROGER_FLAME: get_volume_id - calling get_volumes() - mounts: #{inspect(mounts)}")
     {volumes, time} = get_volumes(state)
 
     case volumes do
