@@ -259,12 +259,14 @@ defmodule FLAME.FlyBackend do
 
   @impl true
   def remote_boot(%FlyBackend{parent_ref: parent_ref} = state) do
-    {mounts, volume_validate_time} = get_volume_id(state)
+    # {mounts, volume_validate_time} = get_volume_id(state)
 
     # TODO ROGER - remove this when done testing
-    mounts = nil
+    # mounts = nil
     volume = "vol_v8811gylxm1dydkv"
     path = "/.mailstack/dyad_ocr"
+
+    Logger.info("ROGER_FLAME: remote_boot() - testing with fixed volume and path")
 
     {resp, req_connect_time} =
       with_elapsed_ms(fn ->
