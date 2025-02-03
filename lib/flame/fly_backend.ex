@@ -262,7 +262,7 @@ defmodule FLAME.FlyBackend do
     # {mounts, volume_validate_time} = get_volume_id(state)
 
     # TODO ROGER - remove this when done testing
-    # mounts = nil
+    {mounts, volume_validate_time} = {nil, 0}
     volume = "vol_v8811gylxm1dydkv"
     path = "/.mailstack/dyad_ocr"
 
