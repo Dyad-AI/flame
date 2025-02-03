@@ -261,12 +261,12 @@ defmodule FLAME.FlyBackend do
   def remote_boot(%FlyBackend{parent_ref: parent_ref} = state) do
     # {mounts, volume_validate_time} = get_volume_id(state)
 
-    # TODO ROGER - remove this when done testing
-    {mounts, volume_validate_time} = {nil, 0}
-    volume = "vol_v8811gylxm1dydkv"
-    path = "/.mailstack/dyad_ocr"
+    Logger.info("ROGER_FLAME: remote_boot() - mounts: #{inspect(state.mounts)}")
 
-    Logger.info("ROGER_FLAME: remote_boot() - testing with fixed volume and path")
+    # TODO ROGER - remove this when done testing
+    {mounts, volume_validate_time} = {[], 0}
+    # volume = "vol_v8811gylxm1dydkv"
+    # path = "/.mailstack/dyad_ocr"
 
     {resp, req_connect_time} =
       with_elapsed_ms(fn ->
@@ -284,7 +284,7 @@ defmodule FLAME.FlyBackend do
               config: %{
                 image: state.image,
                 init: state.init,
-                mounts: [%{volume: volume, path: path}],
+                mounts: mounts,
                 guest: %{
                   cpu_kind: state.cpu_kind,
                   cpus: state.cpus,
@@ -437,22 +437,7 @@ defmodule FLAME.FlyBackend do
     defp otp_cacerts, do: nil
   end
 
-  # defp get_volume_id(%FlyBackend{mounts: []}), do: {nil, 0}
-
-  defp get_volume_id(%FlyBackend{mounts: []} = state) do
-    Logger.info("ROGER_FLAME: get_volume_id - EMPTY MOUNTS in pool")
-    {volumes, time} = get_volumes(state)
-
-    case volumes do
-      [] ->
-        Logger.info("ROGER_FLAME: no volumes retrieved")
-
-      all_volumes ->
-        Logger.info("ROGER_FLAME: list of volumes is: #{inspect(all_volumes)}")
-    end
-
-    {nil, 0}
-  end
+  defp get_volume_id(%FlyBackend{mounts: []}), do: {[], 0}
 
   defp get_volume_id(%FlyBackend{mounts: mounts} = state) when is_list(mounts) do
     Logger.info("ROGER_FLAME: get_volume_id - calling get_volumes() - mounts: #{inspect(mounts)}")
@@ -461,46 +446,37 @@ defmodule FLAME.FlyBackend do
     case volumes do
       [] ->
         Logger.info("ROGER_FLAME: no volumes retrieved")
-        {:error, "no volumes to mount"}
+        {[], 0}
 
       all_volumes ->
         Logger.info("ROGER_FLAME: list of volumes retrieved is: #{inspect(all_volumes)}")
 
-        # volume_ids_by_name =
-        #   all_volumes
-        #   |> Enum.filter(fn vol ->
-        #     vol["attached_machine_id"] == nil and
-        #       vol["state"] == "created"
-        #   end)
-        #   |> Enum.group_by(& &1["name"], & &1["id"])
+        volume_to_mount =
+          all_volumes
+          |> Enum.filter(fn vol ->
+            vol["attached_machine_id"] == nil and
+              vol["state"] == "created" and
+              vol["name"] == mounts.name
+          end)
+          |> Enum.sort_by(& &1["created_at"], :desc)
+          |> volume_to_mount(mounts)
 
-        # Logger.info("ROGER_FLAME: filtered and grouped list is: #{inspect(volume_ids_by_name)}")
+        Logger.info("ROGER_FLAME: filtered list is: #{inspect(volume_ids_by_name)}")
 
-        # new_mounts =
-        #   Enum.map_reduce(
-        #     mounts,
-        #     volume_ids_by_name,
-        #     fn mount, leftover_vols ->
-        #       case List.wrap(leftover_vols[mount.name]) do
-        #         [] ->
-        #           raise ArgumentError,
-        #                 "not enough fly volumes with the name \"#{mount.name}\" to a FLAME child"
-
-        #         [volume_id | rest] ->
-        #           {%{mount | volume: volume_id}, %{leftover_vols | mount.name => rest}}
-        #       end
-        #     end
-        #   )
-
-        # Logger.info("ROGER_FLAME: volumes to mount is: #{inspect(new_mounts)}")
-        # {new_mounts, time}
-        {nil, time}
+        {volume_to_mount, time}
     end
   end
 
   defp get_volume_id(_) do
     Logger.info("ROGER_FLAME: get_volume_id - argument error")
     raise ArgumentError, "expected a list of mounts"
+  end
+
+  def volume_to_mount(volumes, [%{path: path}]) do
+    case volumes do
+      [] -> []
+      [%{"id" => id} | _] -> [%{volume: id, path: path}]
+    end
   end
 
   # TODO ROGER - change this to not use Req - like the rest of the code (and remove Req dependency)
