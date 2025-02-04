@@ -259,12 +259,14 @@ defmodule FLAME.FlyBackend do
 
   @impl true
   def remote_boot(%FlyBackend{parent_ref: parent_ref} = state) do
-    # {mounts, volume_validate_time} = get_volume_id(state)
+    Logger.info("ROGER_FLAME: remote_boot() - integrated - state: #{inspect(state)}")
 
-    Logger.info("ROGER_FLAME: remote_boot() - mounts: #{inspect(state)}")
+    {mounts, volume_validate_time} = maybe_get_volume_to_mount(state)
+
+    Logger.info("ROGER_FLAME: remote_boot() - integrated mounts: #{inspect(mounts)}")
 
     # TODO ROGER - remove this when done testing
-    {mounts, volume_validate_time} = {[], 0}
+    # {mounts, volume_validate_time} = {[], 0}
     # volume = "vol_v8811gylxm1dydkv"
     # path = "/.mailstack/dyad_ocr"
 
@@ -437,42 +439,46 @@ defmodule FLAME.FlyBackend do
     defp otp_cacerts, do: nil
   end
 
-  defp get_volume_id(%FlyBackend{mounts: []}), do: {[], 0}
+  defp maybe_get_volume_to_mount(%FlyBackend{mounts: []}), do: {[], 0}
 
-  defp get_volume_id(%FlyBackend{mounts: mounts} = state) when is_list(mounts) do
-    Logger.info("ROGER_FLAME: get_volume_id - calling get_volumes() - mounts: #{inspect(mounts)}")
+  defp maybe_get_volume_to_mount(%FlyBackend{mounts: mounts} = state) when is_list(mounts) do
+    Logger.info(
+      "ROGER_FLAME: maybe_get_volume_to_mount - calling get_volumes() - mounts: #{inspect(mounts)}"
+    )
+
     {volumes, time} = get_volumes(state)
 
+    # Currently a Fly machine can only mount one volume, so just take the first mount spec
+    {get_volume_to_mount(volumes, hd(mounts)), time}
+  end
+
+  defp maybe_get_volume_to_mount(_) do
+    Logger.info("ROGER_FLAME: maybe_get_volume_to_mount - argument error")
+    raise ArgumentError, "expected a list of mounts"
+  end
+
+  defp get_volume_to_mount(volumes, mount) do
     case volumes do
       [] ->
         Logger.info("ROGER_FLAME: no volumes retrieved")
-        {[], 0}
+        []
 
       all_volumes ->
         Logger.info("ROGER_FLAME: list of volumes retrieved is: #{inspect(all_volumes)}")
 
-        volume_to_mount =
-          all_volumes
-          |> Enum.filter(fn vol ->
-            vol["attached_machine_id"] == nil and
-              vol["state"] == "created" and
-              vol["name"] == mounts.name
-          end)
-          |> Enum.sort_by(& &1["created_at"], :desc)
-          |> volume_to_mount(mounts)
-
-        Logger.info("ROGER_FLAME: filtered list is: #{inspect(volume_to_mount)}")
-
-        {volume_to_mount, time}
+        # Filter by name, state and not attached, get most recently created
+        all_volumes
+        |> Enum.filter(fn vol ->
+          vol["attached_machine_id"] == nil and
+            vol["state"] == "created" and
+            vol["name"] == mount.name
+        end)
+        |> Enum.sort_by(& &1["created_at"], :desc)
+        |> volume_to_mount(mount)
     end
   end
 
-  defp get_volume_id(_) do
-    Logger.info("ROGER_FLAME: get_volume_id - argument error")
-    raise ArgumentError, "expected a list of mounts"
-  end
-
-  def volume_to_mount(volumes, [%{path: path}]) do
+  defp volume_to_mount(volumes, %{path: path}) do
     case volumes do
       [] -> []
       [%{"id" => id} | _] -> [%{volume: id, path: path}]
