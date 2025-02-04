@@ -261,7 +261,7 @@ defmodule FLAME.FlyBackend do
   def remote_boot(%FlyBackend{parent_ref: parent_ref} = state) do
     # {mounts, volume_validate_time} = get_volume_id(state)
 
-    Logger.info("ROGER_FLAME: remote_boot() - mounts: #{inspect(state.mounts)}")
+    Logger.info("ROGER_FLAME: remote_boot() - mounts: #{inspect(state)}")
 
     # TODO ROGER - remove this when done testing
     {mounts, volume_validate_time} = {[], 0}
