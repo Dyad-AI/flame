@@ -461,7 +461,7 @@ defmodule FLAME.FlyBackend do
           |> Enum.sort_by(& &1["created_at"], :desc)
           |> volume_to_mount(mounts)
 
-        Logger.info("ROGER_FLAME: filtered list is: #{inspect(volume_ids_by_name)}")
+        Logger.info("ROGER_FLAME: filtered list is: #{inspect(volume_to_mount)}")
 
         {volume_to_mount, time}
     end
