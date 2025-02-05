@@ -388,13 +388,25 @@ defmodule FLAME.FlyBackend do
       # 422 Unprocessable Entity (could not find capcity for volume workloads)
       {:ok, {{_, status, _}, _, _response_body}}
       when status in [429, 412, 409, 422] and remaining_tries > 0 ->
+        Logger.info(
+          "ROGER_FLAME: HTTP response (429, 412, 409, 422) retry - remaining tries: #{remaining_tries}"
+        )
+
         Process.sleep(1000)
         http_post!(url, remaining_tries - 1, opts)
 
       {:ok, {{_, status, reason}, _, resp_body}} ->
+        Logger.info(
+          "ROGER_FLAME: HTTP response NOT (429, 412, 409, 422) raise: #{url} with #{inspect(status)} (#{inspect(reason)}): #{inspect(resp_body)} #{inspect(headers)}"
+        )
+
         raise "failed POST #{url} with #{inspect(status)} (#{inspect(reason)}): #{inspect(resp_body)} #{inspect(headers)}"
 
       {:error, reason} ->
+        Logger.info(
+          "ROGER_FLAME: HTTP error raise: #{url} with #{inspect(reason)} #{inspect(headers)}"
+        )
+
         raise "failed POST #{url} with #{inspect(reason)} #{inspect(headers)}"
     end
   end
@@ -454,7 +466,7 @@ defmodule FLAME.FlyBackend do
         "ROGER_FLAME: maybe_get_volume_to_mount - TESTING - RETURNING NON-EXISTANT VOL ID"
       )
 
-      [%{volume: "vol_rem006l9z2d5eye6", path: "/.mailstack/dyad_ocr"}]
+      {[%{volume: "vol_rem006l9z2d5eye6", path: "/.mailstack/dyad_ocr"}], 0}
     else
       {volumes, time} = get_volumes(state)
 
