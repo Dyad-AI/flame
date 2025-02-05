@@ -489,11 +489,11 @@ defmodule FLAME.FlyBackend do
     end
   end
 
-  defp volume_to_mount(volumes, %{path: path}) do
+  defp volume_to_mount(volumes, %{path: path, name: name}) do
     case volumes do
       [] ->
-        Logger.info("ROGER_FLAME: ERROR - no free volumes matched mount name: #{mount.name}")
-        raise "no free volumes matched mount name: #{mount.name}"
+        Logger.info("ROGER_FLAME: ERROR - no free volumes matched mount name: #{name}")
+        raise "no free volumes matched mount name: #{name}"
 
       [%{"id" => id} | _] ->
         [%{volume: id, path: path}]
