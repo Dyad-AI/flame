@@ -446,10 +446,21 @@ defmodule FLAME.FlyBackend do
       "ROGER_FLAME: maybe_get_volume_to_mount - calling get_volumes() - mounts: #{inspect(mounts)}"
     )
 
-    {volumes, time} = get_volumes(state)
+    # TODO ROGER - remove this when finished testing
+    mount = hd(mounts)
 
-    # Currently a Fly machine can only mount one volume, so just take the first mount spec
-    {get_volume_to_mount(volumes, hd(mounts)), time}
+    if mount.name == "dyad_ocrx" do
+      Logger.info(
+        "ROGER_FLAME: maybe_get_volume_to_mount - TESTING - RETURNING NON-EXISTANT VOL ID"
+      )
+
+      [%{volume: "vol_rem006l9z2d5eye6", path: "/.mailstack/dyad_ocr"}]
+    else
+      {volumes, time} = get_volumes(state)
+
+      # Currently a Fly machine can only mount one volume, so just take the first mount spec
+      {get_volume_to_mount(volumes, hd(mounts)), time}
+    end
   end
 
   defp maybe_get_volume_to_mount(_) do
@@ -460,8 +471,8 @@ defmodule FLAME.FlyBackend do
   defp get_volume_to_mount(volumes, mount) do
     case volumes do
       [] ->
-        Logger.info("ROGER_FLAME: no volumes retrieved")
-        []
+        Logger.info("ROGER_FLAME: ERROR - no volumes retrieved for mount name: #{mount.name}")
+        raise "no volumes retrieved for mount name: #{mount.name}"
 
       all_volumes ->
         Logger.info("ROGER_FLAME: list of volumes retrieved is: #{inspect(all_volumes)}")
@@ -480,8 +491,12 @@ defmodule FLAME.FlyBackend do
 
   defp volume_to_mount(volumes, %{path: path}) do
     case volumes do
-      [] -> []
-      [%{"id" => id} | _] -> [%{volume: id, path: path}]
+      [] ->
+        Logger.info("ROGER_FLAME: ERROR - no free volumes matched mount name: #{mount.name}")
+        raise "no free volumes matched mount name: #{mount.name}"
+
+      [%{"id" => id} | _] ->
+        [%{volume: id, path: path}]
     end
   end
 
