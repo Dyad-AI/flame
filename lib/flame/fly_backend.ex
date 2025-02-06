@@ -259,11 +259,11 @@ defmodule FLAME.FlyBackend do
 
   @impl true
   def remote_boot(%FlyBackend{parent_ref: parent_ref} = state) do
-    Logger.info("ROGER_FLAME: remote_boot() - integrated - state: #{inspect(state)}")
+    Logger.info("ROGER_FLAME: remote_boot() - return error version - state: #{inspect(state)}")
 
     {mounts, volume_validate_time} = maybe_get_volume_to_mount(state)
 
-    Logger.info("ROGER_FLAME: remote_boot() - integrated mounts: #{inspect(mounts)}")
+    Logger.info("ROGER_FLAME: remote_boot() - return error version: #{inspect(mounts)}")
 
     # TODO ROGER - remove this when done testing
     # {mounts, volume_validate_time} = {[], 0}
@@ -397,17 +397,20 @@ defmodule FLAME.FlyBackend do
 
       {:ok, {{_, status, reason}, _, resp_body}} ->
         Logger.info(
-          "ROGER_FLAME: HTTP response NOT (429, 412, 409, 422) raise: #{url} with #{inspect(status)} (#{inspect(reason)}): #{inspect(resp_body)} #{inspect(headers)}"
+          "ROGER_FLAME: HTTP response NOT (429, 412, 409, 422) RETURN ERROR: #{url} with #{inspect(status)} (#{inspect(reason)}): #{inspect(resp_body)} #{inspect(headers)}"
         )
 
-        raise "failed POST #{url} with #{inspect(status)} (#{inspect(reason)}): #{inspect(resp_body)} #{inspect(headers)}"
+        # raise "failed POST #{url} with #{inspect(status)} (#{inspect(reason)}): #{inspect(resp_body)} #{inspect(headers)}"
+        {:error,
+         "failed POST #{url} with #{inspect(status)} (#{inspect(reason)}): #{inspect(resp_body)} #{inspect(headers)}"}
 
       {:error, reason} ->
         Logger.info(
-          "ROGER_FLAME: HTTP error raise: #{url} with #{inspect(reason)} #{inspect(headers)}"
+          "ROGER_FLAME: HTTP error RETURN ERROR: #{url} with #{inspect(reason)} #{inspect(headers)}"
         )
 
-        raise "failed POST #{url} with #{inspect(reason)} #{inspect(headers)}"
+        # raise "failed POST #{url} with #{inspect(reason)} #{inspect(headers)}"
+        {:error, "failed POST #{url} with #{inspect(reason)} #{inspect(headers)}"}
     end
   end
 
@@ -504,8 +507,12 @@ defmodule FLAME.FlyBackend do
   defp volume_to_mount(volumes, %{path: path, name: name}) do
     case volumes do
       [] ->
-        Logger.info("ROGER_FLAME: ERROR - no free volumes matched mount name: #{name}")
-        raise "no free volumes matched mount name: #{name}"
+        Logger.info(
+          "ROGER_FLAME: ERROR - RETURNING ERROR - no free volumes matched mount name: #{name}"
+        )
+
+        # raise "no free volumes matched mount name: #{name}"
+        {:error, "no free volumes matched mount name: #{name}"}
 
       [%{"id" => id} | _] ->
         [%{volume: id, path: path}]
