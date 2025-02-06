@@ -40,6 +40,9 @@ defmodule FLAME.Pool do
   alias FLAME.{Pool, Runner, Queue, CodeSync}
   alias FLAME.Pool.{RunnerState, WaitingState, Caller}
 
+  # TODO ROGER - remove this
+  require Logger
+
   @default_max_concurrency 100
   @boot_timeout 30_000
   @idle_shutdown_after 30_000
@@ -648,7 +651,10 @@ defmodule FLAME.Pool do
       # TODO: allow % threshold of failed min's to continue startup?
       0..(state.min - 1)
       |> Task.async_stream(
-        fn _ -> start_child_runner(state, idle_shutdown_after: state.min_idle_shutdown_after) end,
+        fn _ ->
+          Logger.info("ROGER_FLAME: Pool.boot_runners() - calling start_child_runner")
+          start_child_runner(state, idle_shutdown_after: state.min_idle_shutdown_after)
+        end,
         max_concurrency: 10,
         timeout: state.boot_timeout
       )
@@ -658,6 +664,7 @@ defmodule FLAME.Pool do
           new_acc
 
         {:exit, reason}, _acc ->
+          Logger.info("ROGER_FLAME: Pool.boot_runners() - exception: #{inspect(reason)}")
           raise "failed to boot runner: #{inspect(reason)}"
       end)
     else
@@ -677,6 +684,8 @@ defmodule FLAME.Pool do
   defp async_boot_runner(%Pool{on_grow_start: on_grow_start, name: name} = state) do
     new_count = runner_count(state) + 1
 
+    Logger.info("ROGER_FLAME: Pool.async_boot_runner() - calling start_child_runner")
+
     task =
       Task.Supervisor.async_nolink(state.task_sup, fn ->
         if on_grow_start, do: on_grow_start.(%{count: new_count, name: name, pid: self()})
@@ -684,6 +693,7 @@ defmodule FLAME.Pool do
         start_child_runner(state)
       end)
 
+    Logger.info("ROGER_FLAME: Pool.async_boot_runner() - returned from start_child_runner")
     new_pending = Map.put(state.pending_runners, task.ref, task.pid)
     %Pool{state | pending_runners: new_pending}
   end
@@ -701,12 +711,26 @@ defmodule FLAME.Pool do
     {:ok, pid} = DynamicSupervisor.start_child(state.runner_sup, spec)
 
     try do
+      Logger.info("ROGER_FLAME: Pool.start_child_runner() - calling Runner.remote_boot")
+
       case Runner.remote_boot(pid, state.base_sync_stream) do
-        :ok -> {:ok, pid}
-        {:error, reason} -> {:error, reason}
+        :ok ->
+          {:ok, pid}
+
+        {:error, reason} ->
+          Logger.info(
+            "ROGER_FLAME: Pool.start_child_runner() - :error - reason: #{inspect(reason)}"
+          )
+
+          {:error, reason}
       end
     catch
-      {:exit, reason} -> {:error, {:exit, reason}}
+      {:exit, reason} ->
+        Logger.info(
+          "ROGER_FLAME: Pool.start_child_runner() - :exception - reason: #{inspect(reason)}"
+        )
+
+        {:error, {:exit, reason}}
     end
   end
 
