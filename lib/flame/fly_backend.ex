@@ -259,11 +259,11 @@ defmodule FLAME.FlyBackend do
 
   @impl true
   def remote_boot(%FlyBackend{parent_ref: parent_ref} = state) do
-    Logger.info("ROGER_FLAME: remote_boot() - return error version - state: #{inspect(state)}")
+    Logger.info("ROGER_FLAME: remote_boot() - no error version - state: #{inspect(state)}")
 
     {mounts, volume_validate_time} = maybe_get_volume_to_mount(state)
 
-    Logger.info("ROGER_FLAME: remote_boot() - return error version: #{inspect(mounts)}")
+    Logger.info("ROGER_FLAME: remote_boot() - no error version: #{inspect(mounts)}")
 
     # TODO ROGER - remove this when done testing
     # {mounts, volume_validate_time} = {[], 0}
@@ -461,21 +461,26 @@ defmodule FLAME.FlyBackend do
       "ROGER_FLAME: maybe_get_volume_to_mount - calling get_volumes() - mounts: #{inspect(mounts)}"
     )
 
-    # TODO ROGER - remove this when finished testing
-    mount = hd(mounts)
+    # TODO ROGER - add this back to test volume mount error
+    # mount = hd(mounts)
 
-    if mount.name == "dyad_ocrx" do
-      Logger.info(
-        "ROGER_FLAME: maybe_get_volume_to_mount - TESTING - RETURNING NON-EXISTANT VOL ID"
-      )
+    # if mount.name == "dyad_ocrx" do
+    #   Logger.info(
+    #     "ROGER_FLAME: maybe_get_volume_to_mount - TESTING - RETURNING NON-EXISTANT VOL ID"
+    #   )
 
-      {[%{volume: "vol_rem006l9z2d5eye6", path: "/.mailstack/dyad_ocr"}], 0}
-    else
-      {volumes, time} = get_volumes(state)
+    #   {[%{volume: "vol_rem006l9z2d5eye6", path: "/.mailstack/dyad_ocr"}], 0}
+    # else
+    #   {volumes, time} = get_volumes(state)
 
-      # Currently a Fly machine can only mount one volume, so just take the first mount spec
-      {get_volume_to_mount(volumes, hd(mounts)), time}
-    end
+    #   # Currently a Fly machine can only mount one volume, so just take the first mount spec
+    #   {get_volume_to_mount(volumes, hd(mounts)), time}
+    # end
+
+    {volumes, time} = get_volumes(state)
+
+    # Currently a Fly machine can only mount one volume, so just take the first mount spec
+    {get_volume_to_mount(volumes, hd(mounts)), time}
   end
 
   defp maybe_get_volume_to_mount(_) do
