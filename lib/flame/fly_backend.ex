@@ -497,14 +497,15 @@ defmodule FLAME.FlyBackend do
       all_volumes ->
         Logger.info("ROGER_FLAME: list of volumes retrieved is: #{inspect(all_volumes)}")
 
-        # Filter by name, state and not attached, get most recently created
+        # Filter by name, state and not attached, pick one at random
+        # Randomising means different volumes can be tried in case of errors from Fly
         all_volumes
         |> Enum.filter(fn vol ->
           vol["attached_machine_id"] == nil and
             vol["state"] == "created" and
             vol["name"] == mount.name
         end)
-        |> Enum.sort_by(& &1["created_at"], :desc)
+        |> Enum.shuffle()
         |> volume_to_mount(mount)
     end
   end
