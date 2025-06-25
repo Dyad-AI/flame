@@ -461,26 +461,10 @@ defmodule FLAME.FlyBackend do
       "ROGER_FLAME: maybe_get_volume_to_mount - calling get_volumes() - mounts: #{inspect(mounts)}"
     )
 
-    # TODO ROGER - add this back to test volume mount error
-    # mount = hd(mounts)
-
-    # if mount.name == "dyad_ocrx" do
-    #   Logger.info(
-    #     "ROGER_FLAME: maybe_get_volume_to_mount - TESTING - RETURNING NON-EXISTANT VOL ID"
-    #   )
-
-    #   {[%{volume: "vol_rem006l9z2d5eye6", path: "/.mailstack/dyad_ocr"}], 0}
-    # else
-    #   {volumes, time} = get_volumes(state)
-
-    #   # Currently a Fly machine can only mount one volume, so just take the first mount spec
-    #   {get_volume_to_mount(volumes, hd(mounts)), time}
-    # end
-
     {volumes, time} = get_volumes(state)
 
     # Currently a Fly machine can only mount one volume, so just take the first mount spec
-    {get_volume_to_mount(volumes, hd(mounts)), time}
+    {get_volume_to_mount(state, volumes, hd(mounts)), time}
   end
 
   defp maybe_get_volume_to_mount(_) do
@@ -488,7 +472,7 @@ defmodule FLAME.FlyBackend do
     raise ArgumentError, "expected a list of mounts"
   end
 
-  defp get_volume_to_mount(volumes, mount) do
+  defp get_volume_to_mount(%FlyBackend{} = state, volumes, mount) do
     case volumes do
       [] ->
         Logger.info("ROGER_FLAME: ERROR - no volumes retrieved for mount name: #{mount.name}")
@@ -497,14 +481,14 @@ defmodule FLAME.FlyBackend do
       all_volumes ->
         Logger.info("ROGER_FLAME: list of volumes retrieved is: #{inspect(all_volumes)}")
 
-        # Filter by name, state and not attached, pick one at random
-        # Randomising means different volumes can be tried in case of errors from Fly
         all_volumes
         |> Enum.filter(fn vol ->
           vol["attached_machine_id"] == nil and
             vol["state"] == "created" and
+            vol["region"] == state.region and
             vol["name"] == mount.name
         end)
+        # Randomising means different volumes can be tried in case of errors from Fly
         |> Enum.shuffle()
         |> volume_to_mount(mount)
     end
